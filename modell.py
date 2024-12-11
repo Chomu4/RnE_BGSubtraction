@@ -29,7 +29,7 @@ def make_noise(frame):
 
     frame = frame.astype(int)
 
-    make_noise = np.random.normal(0, 10, frame.shape)  # 랜덤함수를 이용하여 노이즈 적용
+    make_noise = np.random.normal(0, 20, frame.shape)  # 랜덤함수를 이용하여 노이즈 적용
     set_noise = (1 * make_noise).astype(int)
     frame += set_noise
 
@@ -39,7 +39,8 @@ def make_noise(frame):
     return frame.astype(np.uint8)
 
 # 비디오 파일 열기
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+# cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cap=cv2.VideoCapture('test.mp4')
 
 if not cap.isOpened():
     print('Video open failed!')
@@ -47,13 +48,15 @@ if not cap.isOpened():
 
 
 # 배경 차분 알고리즘 객체 생성
-bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThreshold=50)
+bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThreshold=100)
 #bs = cv2.createBackgroundSubtractorKNN(history=3) # 배경영상이 업데이트 되는 형태가 다름
 bs.setDetectShadows(False) # 그림자 검출 안하면 0과 255로 구성된 마스크 출력
 frame_n = 0
 # 비디오 매 프레임 처리
 while True:
     frame_n += 1
+    if frame_n % 10000 != 0:
+        continue
     ret, frame = cap.read()
     cv2.imshow('frame', frame)
     if not ret:
@@ -65,7 +68,7 @@ while True:
 
     # 0또는 128또는 255로 구성된 fgmask 생성
     #fgmask_noise = bs.apply(gray, learningRate=0)
-    removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
+    removed_noise = cv2.fastNlMeansDenoising(frame, None, 20, 7, 21)
     fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
     back = bs.getBackgroundImage()
     # 배경 영상 받아오기
@@ -80,7 +83,7 @@ while True:
 
     #mask = bs.apply(frame, learningRate=0)
     #cv2.imshow('mask', mask)
-    if frame_n >= 100:
+    if frame_n >= 10:
         frame_n = 0
         cnt = 0
         for i in range(480):
