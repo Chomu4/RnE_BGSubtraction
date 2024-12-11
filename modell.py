@@ -15,7 +15,7 @@ def make_noise(frame):
     noisy_pixels = int(h * w * 0.01)
     pepper = np.random.choice([0, 1], (h, w), p=[0.02, 0.98])
     pepper = np.stack((pepper, pepper, pepper), axis=-1)
-    '''
+
     for _ in range(noisy_pixels):
         row, col = np.random.randint(0, h), np.random.randint(0, w)
         if np.random.rand() < 0.5:
@@ -25,18 +25,21 @@ def make_noise(frame):
             # frame[row, col] = [255, 255, 255]  # Salt (white)
             pass
             # frame[row][col] = [numpy.float64(float(val) + set_noise) for val in (str(frame[row][col])[1:-1]).split(' ') if val]
-            '''
+
 
     frame = frame.astype(int)
+    frame = gaussian_noise(20, frame)
 
-    make_noise = np.random.normal(0, 20, frame.shape)  # 랜덤함수를 이용하여 노이즈 적용
-    set_noise = (1 * make_noise).astype(int)
-    frame += set_noise
-
-    frame = np.clip(frame, 0, 255)
     frame *= pepper
 
     return frame.astype(np.uint8)
+
+def gaussian_noise(scale, frame):
+    make_noise = np.random.normal(0, scale, frame.shape)  # 랜덤함수를 이용하여 노이즈 적용
+    set_noise = (1 * make_noise).astype(int)
+    frame += set_noise
+    frame = np.clip(frame, 0, 255)
+    return frame
 
 # 비디오 파일 열기
 # cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
@@ -69,6 +72,7 @@ while True:
     # 0또는 128또는 255로 구성된 fgmask 생성
     #fgmask_noise = bs.apply(gray, learningRate=0)
     removed_noise = cv2.fastNlMeansDenoising(frame, None, 20, 7, 21)
+    # removed_noise = denoise_gaussian(frame)
     fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
     back = bs.getBackgroundImage()
     # 배경 영상 받아오기
