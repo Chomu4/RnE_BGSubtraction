@@ -1,0 +1,98 @@
+import cv2
+import sys
+
+import numpy as np
+#from u2net_test import bg_sub
+
+
+def make_noise(frame):
+    frame = cv2.resize(frame, (160,120), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+    frame = cv2.resize(frame, (640,480), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+
+    #noise = np.random.normal(2, 1, frame.shape).astype(np.uint8)
+    #frame = cv2.add(frame, noise)
+    h, w, c = frame.shape
+    noisy_pixels = int(h * w * 0.01)
+    pepper = np.random.choice([0, 1], (h, w), p=[0.02, 0.98])
+    pepper = np.stack((pepper, pepper, pepper), axis=-1)
+    '''
+    for _ in range(noisy_pixels):
+        row, col = np.random.randint(0, h), np.random.randint(0, w)
+        if np.random.rand() < 0.5:
+            frame[row, col] = [0, 0, 0]  # Pepper (black)
+            pass
+        else:
+            # frame[row, col] = [255, 255, 255]  # Salt (white)
+            pass
+            # frame[row][col] = [numpy.float64(float(val) + set_noise) for val in (str(frame[row][col])[1:-1]).split(' ') if val]
+            '''
+
+    frame = frame.astype(int)
+
+    make_noise = np.random.normal(0, 10, frame.shape)  # 랜덤함수를 이용하여 노이즈 적용
+    set_noise = (1 * make_noise).astype(int)
+    frame += set_noise
+
+    frame = np.clip(frame, 0, 255)
+    frame *= pepper
+
+    return frame.astype(np.uint8)
+
+# 비디오 파일 열기
+cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+
+if not cap.isOpened():
+    print('Video open failed!')
+    sys.exit()
+
+
+# 배경 차분 알고리즘 객체 생성
+bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThreshold=50)
+#bs = cv2.createBackgroundSubtractorKNN(history=3) # 배경영상이 업데이트 되는 형태가 다름
+bs.setDetectShadows(False) # 그림자 검출 안하면 0과 255로 구성된 마스크 출력
+frame_n = 0
+# 비디오 매 프레임 처리
+while True:
+    frame_n += 1
+    ret, frame = cap.read()
+    cv2.imshow('frame', frame)
+    if not ret:
+        break
+    frame = make_noise(frame)
+    #fgmask = bg_sub(frame) # sample = {'imidx':imidx, 'image':image, 'label':label}
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # 0또는 128또는 255로 구성된 fgmask 생성
+    #fgmask_noise = bs.apply(gray, learningRate=0)
+    removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
+    fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
+    back = bs.getBackgroundImage()
+    # 배경 영상 받아오기
+
+    cv2.imshow('frame_with_noise', frame)
+    cv2.imshow('back', back)
+    #cv2.imshow('fgmask_noise', fgmask_noise)
+
+    cv2.imshow('removed_noise', removed_noise)
+
+    cv2.imshow('fgmask_noiseless', fgmask_noiseless)
+
+    #mask = bs.apply(frame, learningRate=0)
+    #cv2.imshow('mask', mask)
+    if frame_n >= 100:
+        frame_n = 0
+        cnt = 0
+        for i in range(480):
+            for j in range(640):
+                pixel = fgmask_noiseless[i][j]
+                if np.all(pixel == 0):
+                    cnt += 1
+        print(int(cnt/(640*480)*100))
+
+
+    if cv2.waitKey(20) == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
