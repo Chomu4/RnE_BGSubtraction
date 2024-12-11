@@ -1,4 +1,6 @@
 import os
+
+import cv2
 from skimage import io, transform
 import torch
 import torchvision
@@ -39,19 +41,20 @@ def save_output(image_name,pred,d_dir):
     im = Image.fromarray(predict_np*255).convert('RGB')
     img_name = image_name.split(os.sep)[-1]
     image = io.imread(image_name)
-    imo = im.resize((image.shape[1],image.shape[0]),resample=Image.BILINEAR)
+    imo = im.resize((image.shape[1],image.shape[0]),resample=Image.Resampling.BILINEAR)
 
     pb_np = np.array(imo)
-
-    aaa = img_name.split(".")
-    bbb = aaa[0:-1]
-    imidx = bbb[0]
-    for i in range(1,len(bbb)):
-        imidx = imidx + "." + bbb[i]
-
-    imo.save(d_dir+imidx+'.png')
+    return cv2.cvtColor(pb_np, cv2.COLOR_RGB2BGR)
+    # aaa = img_name.split(".")
+    # bbb = aaa[0:-1]
+    # imidx = bbb[0]
+    # for i in range(1,len(bbb)):
+    #     imidx = imidx + "." + bbb[i]
+    #
+    # imo.save(d_dir+imidx+'.png')
 
 def bg_sub(frame):
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     # --------- 1. get image path and name ---------
     model_name='u2net'#u2netp
@@ -111,12 +114,12 @@ def bg_sub(frame):
         # normalization
         pred = d1[:,0,:,:]
         pred = normPRED(pred)
-
+        '''
         # save results to test_results folder
         if not os.path.exists(prediction_dir):
             os.makedirs(prediction_dir, exist_ok=True)
         save_output(img_name_list[i_test],pred,prediction_dir)
-
+        '''
         del d1,d2,d3,d4,d5,d6,d7
         return pred
 """
