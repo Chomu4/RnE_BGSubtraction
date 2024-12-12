@@ -32,15 +32,45 @@ def normPRED(d):
 
     return dn
 
-def save_output(image_name,pred,d_dir):
+def init():
+    global net
+    # --------- 1. get image path and name ---------
+    model_name = 'u2net'  # u2netp
+
+    image_dir = os.path.join(os.getcwd(), 'test_data', 'test_images')
+    prediction_dir = os.path.join(os.getcwd(), 'test_data', model_name + '_results' + os.sep)
+    model_dir = os.path.join(os.getcwd(), 'saved_models', model_name, model_name + '.pth')
+
+    # img_name_list = glob.glob(image_dir + os.sep + '*')
+    # print(img_name_list)
+
+    # --------- 3. model define ---------
+    if (model_name == 'u2net'):
+        print("...load U2NET---173.6 MB")
+        net = U2NET(3, 1)
+    elif (model_name == 'u2netp'):
+        print("...load U2NEP---4.7 MB")
+        net = U2NETP(3, 1)
+    else:
+        raise "bro"
+
+    if torch.cuda.is_available():
+        net.load_state_dict(torch.load(model_dir))
+        net.cuda()
+    else:
+        net.load_state_dict(torch.load(model_dir, map_location='cpu'))
+    net.eval()
+
+def save_output(frame,pred):
+    global net
 
     predict = pred
     predict = predict.squeeze()
     predict_np = predict.cpu().data.numpy()
 
     im = Image.fromarray(predict_np*255).convert('RGB')
-    img_name = image_name.split(os.sep)[-1]
-    image = io.imread(image_name)
+    # img_name = image_name.split(os.sep)[-1]
+    image = frame
     imo = im.resize((image.shape[1],image.shape[0]),resample=Image.Resampling.BILINEAR)
 
     pb_np = np.array(imo)
@@ -56,17 +86,7 @@ def save_output(image_name,pred,d_dir):
 def bg_sub(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    # --------- 1. get image path and name ---------
-    model_name='u2net'#u2netp
 
-
-
-    image_dir = os.path.join(os.getcwd(), 'test_data', 'test_images')
-    prediction_dir = os.path.join(os.getcwd(), 'test_data', model_name + '_results' + os.sep)
-    model_dir = os.path.join(os.getcwd(), 'saved_models', model_name, model_name + '.pth')
-
-    img_name_list = glob.glob(image_dir + os.sep + '*')
-    print(img_name_list)
 
     # --------- 2. dataloader ---------
     #1. dataloader
@@ -81,25 +101,13 @@ def bg_sub(frame):
                                         shuffle=False,
                                         num_workers=1)
 
-    # --------- 3. model define ---------
-    if(model_name=='u2net'):
-        print("...load U2NET---173.6 MB")
-        net = U2NET(3,1)
-    elif(model_name=='u2netp'):
-        print("...load U2NEP---4.7 MB")
-        net = U2NETP(3,1)
 
-    if torch.cuda.is_available():
-        net.load_state_dict(torch.load(model_dir))
-        net.cuda()
-    else:
-        net.load_state_dict(torch.load(model_dir, map_location='cpu'))
-    net.eval()
 
     # --------- 4. inference for each image ---------
     for i_test, data_test in enumerate(test_salobj_dataloader):
 
-        print("inferencing:",img_name_list[i_test].split(os.sep)[-1])
+        # print("inferencing:",img_name_list[i_test].split(os.sep)[-1])
+        print("inferencing")
 
         inputs_test = data_test['image']
         inputs_test = inputs_test.type(torch.FloatTensor)
@@ -121,7 +129,7 @@ def bg_sub(frame):
         save_output(img_name_list[i_test],pred,prediction_dir)
         '''
         del d1,d2,d3,d4,d5,d6,d7
-        return pred
+        return save_output(frame, pred)
 """
 if __name__ == "__main__":
     main()

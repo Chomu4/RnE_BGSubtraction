@@ -2,6 +2,11 @@ import cv2
 import sys
 
 import numpy as np
+
+import u2net_test
+from u2net_test import bg_sub
+
+
 #from u2net_test import bg_sub
 import csv
 
@@ -41,72 +46,78 @@ def gaussian_noise(scale, frame):
     frame = np.clip(frame, 0, 255)
     return frame
 
-# 비디오 파일 열기
-# cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-cap=cv2.VideoCapture('sim_vid.mp4')
 
-if not cap.isOpened():
-    print('Video open failed!')
-    sys.exit()
+def main():
+    # 비디오 파일 열기
+    # cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    cap=cv2.VideoCapture('sim_vid.mp4')
+
+    if not cap.isOpened():
+        print('Video open failed!')
+        sys.exit()
+
+    u2net_test.init()
+
+    # 배경 차분 알고리즘 객체 생성
+    bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThreshold=100)
+    #bs = cv2.createBackgroundSubtractorKNN(history=3) # 배경영상이 업데이트 되는 형태가 다름
+    bs.setDetectShadows(False) # 그림자 검출 안하면 0과 255로 구성된 마스크 출력
+    frame_n = 0
+    data = [['cv']]
+    # 비디오 매 프레임 처리
+    while True:
+        frame_n += 1
+        if frame_n % 60 != 0:
+            continue
+        ret, frame = cap.read()
+        try:
+            cv2.imshow('frame', frame)
+        except cv2.error:
+            break
+        if not ret:
+            break
+        frame = make_noise(frame)
+        #fgmask = bg_sub(frame) # sample = {'imidx':imidx, 'image':image, 'label':label}
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # 0또는 128또는 255로 구성된 fgmask 생성
+        #fgmask_noise = bs.apply(gray, learningRate=0)
+        removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
+        fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
+        back = bs.getBackgroundImage()
+        # 배경 영상 받아오기
+
+        cv2.imshow('frame_with_noise', frame)
+        cv2.imshow('back', back)
+        #cv2.imshow('fgmask_noise', fgmask_noise)
+
+        cv2.imshow('removed_noise', removed_noise)
+
+        cv2.imshow('fgmask_noiseless', fgmask_noiseless)
+
+        #mask = bs.apply(frame, learningRate=0)
+        #cv2.imshow('mask', mask)
+        if frame_n >= 10:
+            frame_n = 0
+            cnt = 0
+            for i in range(frame.shape[0]):
+                for j in range(frame.shape[1]):
+                    pixel = fgmask_noiseless[i][j]
+                    if np.all(pixel == 0):
+                        cnt += 1
+            data.append([(int(cnt/(640*480)*100))])
 
 
-# 배경 차분 알고리즘 객체 생성
-bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThreshold=100)
-#bs = cv2.createBackgroundSubtractorKNN(history=3) # 배경영상이 업데이트 되는 형태가 다름
-bs.setDetectShadows(False) # 그림자 검출 안하면 0과 255로 구성된 마스크 출력
-frame_n = 0
-data = [['cv']]
-# 비디오 매 프레임 처리
-while True:
-    frame_n += 1
-    if frame_n % 60 != 0:
-        continue
-    ret, frame = cap.read()
-    try:
-        cv2.imshow('frame', frame)
-    except cv2.error:
-        break
-    if not ret:
-        break
-    frame = make_noise(frame)
-    #fgmask = bg_sub(frame) # sample = {'imidx':imidx, 'image':image, 'label':label}
+        if cv2.waitKey(20) == 27:
+            break
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    cap.release()
+    cv2.destroyAllWindows()
 
-    # 0또는 128또는 255로 구성된 fgmask 생성
-    #fgmask_noise = bs.apply(gray, learningRate=0)
-    removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
-    fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
-    back = bs.getBackgroundImage()
-    # 배경 영상 받아오기
+    f = open("result.csv", "w")
+    csv.writer(f).writerows(data)
+    f.close()
 
-    cv2.imshow('frame_with_noise', frame)
-    cv2.imshow('back', back)
-    #cv2.imshow('fgmask_noise', fgmask_noise)
-
-    cv2.imshow('removed_noise', removed_noise)
-
-    cv2.imshow('fgmask_noiseless', fgmask_noiseless)
-
-    #mask = bs.apply(frame, learningRate=0)
-    #cv2.imshow('mask', mask)
-    if frame_n >= 10:
-        frame_n = 0
-        cnt = 0
-        for i in range(frame.shape[0]):
-            for j in range(frame.shape[1]):
-                pixel = fgmask_noiseless[i][j]
-                if np.all(pixel == 0):
-                    cnt += 1
-        data.append([(int(cnt/(640*480)*100))])
-
-
-    if cv2.waitKey(20) == 27:
-        break
-
-cap.release()
-cv2.destroyAllWindows()
-
-f = open("result.csv", "w")
-csv.writer(f).writerows(data)
-f.close()
+if __name__ == "__main__":
+    main()
