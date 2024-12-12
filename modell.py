@@ -50,7 +50,7 @@ def gaussian_noise(scale, frame):
 def main():
     # 비디오 파일 열기
     # cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-    cap=cv2.VideoCapture('test.mp4')
+    cap=cv2.VideoCapture('test/test.mp4')
 
     if not cap.isOpened():
         print('Video open failed!')
@@ -117,7 +117,7 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
 
-    f = open("result.csv", "w")
+    f = open("test/result.csv", "w")
     csv.writer(f).writerows(data)
     f.close()
 
