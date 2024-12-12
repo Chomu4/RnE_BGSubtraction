@@ -3,18 +3,18 @@ import sys
 
 import numpy as np
 #from u2net_test import bg_sub
-
+import csv
 
 def make_noise(frame):
-    frame = cv2.resize(frame, (160,120), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-    frame = cv2.resize(frame, (640,480), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+    # frame = cv2.resize(frame, (160,120), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+    # frame = cv2.resize(frame, (640,480), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
 
     #noise = np.random.normal(2, 1, frame.shape).astype(np.uint8)
     #frame = cv2.add(frame, noise)
     h, w, c = frame.shape
     noisy_pixels = int(h * w * 0.01)
-    pepper = np.random.choice([0, 1], (h, w), p=[0.02, 0.98])
-    pepper = np.stack((pepper, pepper, pepper), axis=-1)
+    # pepper = np.random.choice([0, 1], (h, w), p=[0.02, 0.98])
+    # pepper = np.stack((pepper, pepper, pepper), axis=-1)
 
     for _ in range(noisy_pixels):
         row, col = np.random.randint(0, h), np.random.randint(0, w)
@@ -30,7 +30,7 @@ def make_noise(frame):
     frame = frame.astype(int)
     frame = gaussian_noise(20, frame)
 
-    frame *= pepper
+    # frame *= pepper
 
     return frame.astype(np.uint8)
 
@@ -43,7 +43,7 @@ def gaussian_noise(scale, frame):
 
 # 비디오 파일 열기
 # cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-cap=cv2.VideoCapture('test.mp4')
+cap=cv2.VideoCapture('sim_vid.mp4')
 
 if not cap.isOpened():
     print('Video open failed!')
@@ -55,13 +55,17 @@ bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThres
 #bs = cv2.createBackgroundSubtractorKNN(history=3) # 배경영상이 업데이트 되는 형태가 다름
 bs.setDetectShadows(False) # 그림자 검출 안하면 0과 255로 구성된 마스크 출력
 frame_n = 0
+data = [['cv']]
 # 비디오 매 프레임 처리
 while True:
     frame_n += 1
-    if frame_n % 10000 != 0:
+    if frame_n % 60 != 0:
         continue
     ret, frame = cap.read()
-    cv2.imshow('frame', frame)
+    try:
+        cv2.imshow('frame', frame)
+    except cv2.error:
+        break
     if not ret:
         break
     frame = make_noise(frame)
@@ -71,8 +75,7 @@ while True:
 
     # 0또는 128또는 255로 구성된 fgmask 생성
     #fgmask_noise = bs.apply(gray, learningRate=0)
-    removed_noise = cv2.fastNlMeansDenoising(frame, None, 20, 7, 21)
-    # removed_noise = denoise_gaussian(frame)
+    removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
     fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
     back = bs.getBackgroundImage()
     # 배경 영상 받아오기
@@ -90,12 +93,12 @@ while True:
     if frame_n >= 10:
         frame_n = 0
         cnt = 0
-        for i in range(480):
-            for j in range(640):
+        for i in range(frame.shape[0]):
+            for j in range(frame.shape[1]):
                 pixel = fgmask_noiseless[i][j]
                 if np.all(pixel == 0):
                     cnt += 1
-        print(int(cnt/(640*480)*100))
+        data.append([(int(cnt/(640*480)*100))])
 
 
     if cv2.waitKey(20) == 27:
@@ -103,3 +106,7 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+f = open("result.csv", "w")
+csv.writer(f).writerows(data)
+f.close()
