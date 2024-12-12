@@ -50,7 +50,7 @@ def gaussian_noise(scale, frame):
 def main():
     # 비디오 파일 열기
     # cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-    cap=cv2.VideoCapture('sim_vid.mp4')
+    cap=cv2.VideoCapture('test.mp4')
 
     if not cap.isOpened():
         print('Video open failed!')
@@ -85,6 +85,7 @@ def main():
         #fgmask_noise = bs.apply(gray, learningRate=0)
         removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
         fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
+        fgmask_noiseless_u2net = u2net_test.bg_sub(removed_noise)
         back = bs.getBackgroundImage()
         # 배경 영상 받아오기
 
@@ -95,6 +96,7 @@ def main():
         cv2.imshow('removed_noise', removed_noise)
 
         cv2.imshow('fgmask_noiseless', fgmask_noiseless)
+        cv2.imshow('fgmask_noiseless_u2net', fgmask_noiseless_u2net)
 
         #mask = bs.apply(frame, learningRate=0)
         #cv2.imshow('mask', mask)
