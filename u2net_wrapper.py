@@ -1,5 +1,6 @@
 import enum
 import os
+import time
 
 import cv2
 from skimage import io, transform
@@ -30,6 +31,7 @@ from model import U2NETP # small version u2net 4.7 MB
 class Models(enum.StrEnum):
     U2NET = "u2net"
     U2NETP = "u2netp"
+    U2NET_HUMAN_SEG = "u2net_human_seg"
 
 net: U2NET | U2NETP | None = None
 dev = None
@@ -49,6 +51,9 @@ def init(model: Models):
     elif model == Models.U2NETP:
         print("...load U2NEP---4.7 MB")
         net = U2NETP(3, 1)
+    elif model == Models.U2NET_HUMAN_SEG:
+        print("...load U2NET(human_seg)---168 MB")
+        net = U2NET(3, 1)
     else:
         raise "bro"
 
@@ -112,6 +117,8 @@ def normalize_prediction(d):
     return dn
 
 def u2net_bg_sub(frame):
+    t = time.time_ns()
+
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     torch_frame = preprocess(frame).to(device=dev)
@@ -127,7 +134,12 @@ def u2net_bg_sub(frame):
     predict_rgb = Image.fromarray(predict_np * 255).convert('RGB')
     predict_resize = predict_rgb.resize((frame.shape[1], frame.shape[0]), resample=Image.Resampling.BILINEAR)
 
-    return cv2.cvtColor(np.array(predict_resize), cv2.COLOR_RGB2BGR)
+    ret = cv2.cvtColor(np.array(predict_resize), cv2.COLOR_RGB2BGR)
+
+    dt = time.time_ns() - t
+    print(f'U2NET took {dt/1_000_000.0} ms to run')
+
+    return ret
 
 '''
 def bg_sub(frame):
