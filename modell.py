@@ -3,9 +3,7 @@ import sys
 
 import numpy as np
 
-import u2net_test
-from u2net_test import bg_sub
-
+import u2net_wrapper
 
 #from u2net_test import bg_sub
 import csv
@@ -56,7 +54,7 @@ def main():
         print('Video open failed!')
         sys.exit()
 
-    u2net_test.init()
+    u2net_wrapper.init(u2net_wrapper.Models.U2NET)
 
     # 배경 차분 알고리즘 객체 생성
     bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThreshold=100)
@@ -86,7 +84,7 @@ def main():
         #fgmask_noise = bs.apply(gray, learningRate=0)
         removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
         fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
-        fgmask_noiseless_u2net = u2net_test.bg_sub(frame)
+        fgmask_noiseless_u2net = u2net_wrapper.u2net_bg_sub(removed_noise)
         back = bs.getBackgroundImage()
         # 배경 영상 받아오기
 

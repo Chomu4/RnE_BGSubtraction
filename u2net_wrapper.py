@@ -1,3 +1,4 @@
+import enum
 import os
 
 import cv2
@@ -24,43 +25,38 @@ from model import U2NET # full size version 173.6 MB
 from model import U2NETP # small version u2net 4.7 MB
 #import modell
 # normalize the predicted SOD probability map
-def normPRED(d):
-    ma = torch.max(d)
-    mi = torch.min(d)
 
-    dn = (d-mi)/(ma-mi)
 
-    return dn
+class Models(enum.StrEnum):
+    U2NET = "u2net"
+    U2NETP = "u2netp"
 
-def init():
-    global net
-    # --------- 1. get image path and name ---------
-    model_name = 'u2net'  # u2netp
+net: U2NET | U2NETP | None = None
+dev = None
 
-    image_dir = os.path.join(os.getcwd(), 'test_data', 'test_images')
-    prediction_dir = os.path.join(os.getcwd(), 'test_data', model_name + '_results' + os.sep)
-    model_dir = os.path.join(os.getcwd(), 'saved_models', model_name, model_name + '.pth')
+def init(model: Models):
+    global net, dev
+    dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {dev}")
 
-    # img_name_list = glob.glob(image_dir + os.sep + '*')
-    # print(img_name_list)
+    torch.set_grad_enabled(False)
 
-    # --------- 3. model define ---------
-    if (model_name == 'u2net'):
+    model_dir = os.path.join(os.getcwd(), 'saved_models', model, model + '.pth')
+
+    if model == Models.U2NET:
         print("...load U2NET---173.6 MB")
         net = U2NET(3, 1)
-    elif (model_name == 'u2netp'):
+    elif model == Models.U2NETP:
         print("...load U2NEP---4.7 MB")
         net = U2NETP(3, 1)
     else:
         raise "bro"
 
-    if torch.cuda.is_available():
-        net.load_state_dict(torch.load(model_dir))
-        net.cuda()
-    else:
-        net.load_state_dict(torch.load(model_dir, map_location='cpu'))
+    net.load_state_dict(torch.load(model_dir, map_location=torch.device(dev)))
+    net = net.to(device=dev)
     net.eval()
 
+'''
 def save_output(frame,pred):
     global net
 
@@ -82,10 +78,61 @@ def save_output(frame,pred):
     #     imidx = imidx + "." + bbb[i]
     #
     # imo.save(d_dir+imidx+'.png')
+'''
 
-def bg_sub(frame):
+IMAGE_INPUT_SIZE = 320
+
+def preprocess(img: np.array) -> torch.Tensor:
+    # Image resize
+    img = transform.resize(img, (IMAGE_INPUT_SIZE, IMAGE_INPUT_SIZE), mode='constant')
+
+    # RGB normalization
+    tmp_img = np.zeros((img.shape[0], img.shape[1], 3))
+    img = img / np.max(img)
+    if img.shape[2] == 1:
+        tmp_img[:, :, 0] = (img[:, :, 0] - 0.485) / 0.229
+        tmp_img[:, :, 1] = (img[:, :, 0] - 0.485) / 0.229
+        tmp_img[:, :, 2] = (img[:, :, 0] - 0.485) / 0.229
+    else:
+        tmp_img[:, :, 0] = (img[:, :, 0] - 0.485) / 0.229
+        tmp_img[:, :, 1] = (img[:, :, 1] - 0.456) / 0.224
+        tmp_img[:, :, 2] = (img[:, :, 2] - 0.406) / 0.225
+
+    tmp_img = tmp_img.transpose((2, 0, 1))
+    torch_img = torch.from_numpy(tmp_img)
+
+    return torch_img.float().unsqueeze(0)
+
+def normalize_prediction(d):
+    ma = torch.max(d)
+    mi = torch.min(d)
+
+    dn = (d-mi)/(ma-mi)
+
+    return dn
+
+def u2net_bg_sub(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+    torch_frame = preprocess(frame).to(device=dev)
+    res: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] = net(torch_frame)
+    d1, d2, d3, d4, d5, d6, d7 = res
+
+    predict = d1[:, 0, :, :]
+    predict = normalize_prediction(predict)
+
+    predict = predict.squeeze()
+    predict_np = predict.to(device="cpu").detach().numpy()
+
+    predict_rgb = Image.fromarray(predict_np * 255).convert('RGB')
+    predict_resize = predict_rgb.resize((frame.shape[1], frame.shape[0]), resample=Image.Resampling.BILINEAR)
+
+    return cv2.cvtColor(np.array(predict_resize), cv2.COLOR_RGB2BGR)
+
+'''
+def bg_sub(frame):
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame = transforms.Compose([RescaleT(320), ToTensorLab(flag=0)])(frame)
 
 
     # --------- 2. dataloader ---------
@@ -122,15 +169,16 @@ def bg_sub(frame):
         # normalization
         pred = d1[:,0,:,:]
         pred = normPRED(pred)
-        '''
+        
         # save results to test_results folder
         if not os.path.exists(prediction_dir):
             os.makedirs(prediction_dir, exist_ok=True)
         save_output(img_name_list[i_test],pred,prediction_dir)
-        '''
+        
         del d1,d2,d3,d4,d5,d6,d7
         return save_output(frame, pred)
 """
 if __name__ == "__main__":
     main()
 """
+'''
