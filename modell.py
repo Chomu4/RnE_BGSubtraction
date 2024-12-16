@@ -11,8 +11,8 @@ import u2net_wrapper
 import csv
 
 def make_noise(frame):
-    # frame = cv2.resize(frame, (160,120), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-    # frame = cv2.resize(frame, (640,480), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+    frame = cv2.resize(frame, (640,360), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+    frame = cv2.resize(frame, (1024,576), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
 
     #noise = np.random.normal(2, 1, frame.shape).astype(np.uint8)
     #frame = cv2.add(frame, noise)
@@ -49,8 +49,8 @@ def gaussian_noise(scale, frame):
 
 def main():
     # 비디오 파일 열기
-    # cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    cap = cv2.VideoCapture('test/simulation_result_20241212_231557.mp4')
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    # cap = cv2.VideoCapture('test/simulation_result_20241212_231557.mp4')
 
     if not cap.isOpened():
         print('Video open failed!')
@@ -70,16 +70,19 @@ def main():
         t = time.time_ns()
         # print("loop")
         ret, frame = cap.read()
+        if not ret:
+            break
+
         frame_n += 1
         if frame_n % 60 != 0:
             continue
-        frame = cv2.resize(frame, (1024, 576))
+
         try:
+            frame = cv2.resize(frame, (1024, 576))
             cv2.imshow('frame', frame)
         except cv2.error:
             break
-        if not ret:
-            break
+
         frame = make_noise(frame)
         #fgmask = bg_sub(frame) # sample = {'imidx':imidx, 'image':image, 'label':label}
 
@@ -89,7 +92,7 @@ def main():
         #fgmask_noise = bs.apply(gray, learningRate=0)
         removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 10)
         fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
-        fgmask_noiseless_u2net = u2net_wrapper.u2net_bg_sub(removed_noise)
+        # fgmask_noiseless_u2net = u2net_wrapper.u2net_bg_sub(removed_noise)
         back = bs.getBackgroundImage()
         # 배경 영상 받아오기
 
@@ -100,12 +103,12 @@ def main():
         cv2.imshow('removed_noise', removed_noise)
 
         cv2.imshow('fgmask_noiseless', fgmask_noiseless)
-        cv2.imshow('fgmask_noiseless_u2net', fgmask_noiseless_u2net)
+        # cv2.imshow('fgmask_noiseless_u2net', fgmask_noiseless_u2net)
 
         #mask = bs.apply(frame, learningRate=0)
         #cv2.imshow('mask', mask)
         cnt_mog = np.sum(fgmask_noiseless == 0)
-        cnt_u2net = np.sum(fgmask_noiseless_u2net < 60)
+        # cnt_u2net = np.sum(fgmask_noiseless_u2net < 60)
         # for i in range(frame.shape[0]):
         #     for j in range(frame.shape[1]):
         #         pixel_mog = fgmask_noiseless[i][j]
@@ -116,7 +119,7 @@ def main():
         #             cnt_u2net += 1
 
         data_mog.append([(round(cnt_mog/(640*480)*100))])
-        data_u2net.append([(round(cnt_u2net / (640 * 480) * 100))])
+        # data_u2net.append([(round(cnt_u2net / (640 * 480) * 100))])
 
 
         # if cv2.waitKey(20) == 27:
@@ -134,9 +137,9 @@ def main():
     f = open("MOG2_result.csv", "w")
     csv.writer(f).writerows(data_mog)
     f.close()
-    f = open("U-2-Net_result.csv", "w")
-    csv.writer(f).writerows(data_u2net)
-    f.close()
+    # f = open("U-2-Net_result.csv", "w")
+    # csv.writer(f).writerows(data_u2net)
+    # f.close()
 
 def test():
     u2net_wrapper.init(u2net_wrapper.Models.U2NET)
