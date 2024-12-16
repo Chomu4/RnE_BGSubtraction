@@ -49,8 +49,8 @@ def gaussian_noise(scale, frame):
 
 def main():
     # 비디오 파일 열기
-    # cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-    cap=cv2.VideoCapture('test/test.mp4')
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    # cap=cv2.VideoCapture('test/test.mp4')
 
     if not cap.isOpened():
         print('Video open failed!')
@@ -63,12 +63,13 @@ def main():
     #bs = cv2.createBackgroundSubtractorKNN(history=3) # 배경영상이 업데이트 되는 형태가 다름
     bs.setDetectShadows(False) # 그림자 검출 안하면 0과 255로 구성된 마스크 출력
     frame_n = 0
-    data = [['cv']]
+    data_mog = []
+    data_u2net = []
     # 비디오 매 프레임 처리
     while True:
         frame_n += 1
         if frame_n % 60 != 0:
-            continue
+            pass
         ret, frame = cap.read()
         try:
             cv2.imshow('frame', frame)
@@ -85,7 +86,7 @@ def main():
         #fgmask_noise = bs.apply(gray, learningRate=0)
         removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 21)
         fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
-        fgmask_noiseless_u2net = u2net_test.bg_sub(removed_noise)
+        fgmask_noiseless_u2net = u2net_test.bg_sub(frame)
         back = bs.getBackgroundImage()
         # 배경 영상 받아오기
 
@@ -100,25 +101,35 @@ def main():
 
         #mask = bs.apply(frame, learningRate=0)
         #cv2.imshow('mask', mask)
-        if frame_n >= 10:
-            frame_n = 0
-            cnt = 0
-            for i in range(frame.shape[0]):
-                for j in range(frame.shape[1]):
-                    pixel = fgmask_noiseless[i][j]
-                    if np.all(pixel == 0):
-                        cnt += 1
-            data.append([(int(cnt/(640*480)*100))])
+        cnt_mog = 0
+        cnt_u2net = 0
+        for i in range(frame.shape[0]):
+            for j in range(frame.shape[1]):
+                pixel_mog = fgmask_noiseless[i][j]
+                pixel_u2net = fgmask_noiseless_u2net[i][j]
+                if np.all(pixel_mog == 0):   # 검은색의 비율
+                    cnt_mog += 1
+                if np.all(pixel_u2net < 60):
+                    cnt_u2net += 1
+
+        data_mog.append([(round(cnt_mog/(640*480)*100))])
+        data_u2net.append([(round(cnt_u2net / (640 * 480) * 100))])
 
 
         if cv2.waitKey(20) == 27:
+            break
+        key = cv2.waitKey(1)
+        if key % 256 == 27:
             break
 
     cap.release()
     cv2.destroyAllWindows()
 
-    f = open("test/result.csv", "w")
-    csv.writer(f).writerows(data)
+    f = open("MOG2_result.csv", "w")
+    csv.writer(f).writerows(data_mog)
+    f.close()
+    f = open("U-2-Net_result.csv", "w")
+    csv.writer(f).writerows(data_u2net)
     f.close()
 
 if __name__ == "__main__":
