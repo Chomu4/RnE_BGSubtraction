@@ -49,8 +49,8 @@ def gaussian_noise(scale, frame):
 
 def main():
     # 비디오 파일 열기
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    # cap = cv2.VideoCapture('test/simulation_result_20241212_231557.mp4')
+    # cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture('test/cropped.mp4')
 
     if not cap.isOpened():
         print('Video open failed!')
@@ -65,6 +65,8 @@ def main():
     frame_n = 0
     data_mog = []
     data_u2net = []
+    bias = 0
+
     # 비디오 매 프레임 처리
     while True:
         t = time.time_ns()
@@ -74,9 +76,9 @@ def main():
             break
 
         frame_n += 1
-        if frame_n % 60 != 0:
-            continue
 
+        if frame_n % 10 != 0:
+            continue
         try:
             frame = cv2.resize(frame, (1024, 576))
             cv2.imshow('frame', frame)
