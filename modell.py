@@ -49,17 +49,18 @@ def gaussian_noise(scale, frame):
 
 def main():
     # 비디오 파일 열기
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
     # cap = cv2.VideoCapture('test/simulation_result_20241212_231557.mp4')
+    # cap = cv2.VideoCapture('test/test.mp4')
 
     if not cap.isOpened():
         print('Video open failed!')
         sys.exit()
 
-    u2net_wrapper.init(u2net_wrapper.Models.U2NET_HUMAN_SEG)
+    # u2net_wrapper.init(u2net_wrapper.Models.U2NET_HUMAN_SEG)
 
     # 배경 차분 알고리즘 객체 생성
-    bs = cv2.createBackgroundSubtractorMOG2(history=0, detectShadows=False, varThreshold=100)
+    bs = cv2.createBackgroundSubtractorMOG2(history=110, detectShadows=False, varThreshold=16)
     #bs = cv2.createBackgroundSubtractorKNN(history=3) # 배경영상이 업데이트 되는 형태가 다름
     bs.setDetectShadows(False) # 그림자 검출 안하면 0과 255로 구성된 마스크 출력
     frame_n = 0
@@ -90,7 +91,8 @@ def main():
 
         # 0또는 128또는 255로 구성된 fgmask 생성
         #fgmask_noise = bs.apply(gray, learningRate=0)
-        removed_noise = cv2.fastNlMeansDenoising(frame, None, 30, 7, 10)
+        removed_noise = cv2.fastNlMeansDenoisingColored(frame, None, 15, 7, 21)
+        t = time.time_ns()
         fgmask_noiseless = bs.apply(removed_noise, learningRate=0)
         # fgmask_noiseless_u2net = u2net_wrapper.u2net_bg_sub(removed_noise)
         back = bs.getBackgroundImage()
@@ -124,10 +126,9 @@ def main():
 
         # if cv2.waitKey(20) == 27:
         #     break
-        key = cv2.waitKey(1)
+        key = cv2.waitKey(0)
         if key % 256 == 27:
             break
-
         dt = time.time_ns() - t
         print(f'Loop took {dt/1_000_000.0} ms to run')
 
